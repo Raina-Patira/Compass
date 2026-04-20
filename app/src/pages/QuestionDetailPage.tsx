@@ -50,6 +50,7 @@ const QuestionDetailPage: React.FC = () => {
     try {
       const response = await questionsApi.getById(id!);
       setQuestion(response.data.question);
+      console.log("yes",response.data )
     } catch (error) {
       console.error('Failed to fetch question:', error);
       toast.error('Failed to load question');

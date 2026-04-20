@@ -214,7 +214,7 @@ export const adminApi = {
 // AI API
 export const aiApi = {
   extractTags: (title: string, content: string) =>
-    api.post('/ai/extract-tags', { title, content }),
+  api.post('/ai/extract-tags', { title, content }),
   
   findExperts: (questionId: string, tagIds: string[], questionContent?: string) =>
     api.post('/ai/find-experts', { questionId, tagIds, questionContent }),
