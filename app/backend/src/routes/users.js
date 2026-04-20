@@ -1,23 +1,32 @@
-const express = require('express');
-const { User, UserExpertise, ExpertiseTag, UserBadge, Badge, PointsHistory, ActivityLog } = require('../models');
-const { authenticateToken } = require('../middleware/auth');
-const { Op } = require('sequelize');
+const express = require("express");
+const {
+  User,
+  UserExpertise,
+  ExpertiseTag,
+  UserBadge,
+  Badge,
+  PointsHistory,
+  ActivityLog,
+} = require("../models");
+const { authenticateToken } = require("../middleware/auth");
+const { sequelize } = require("../models");
+const { Op } = require("sequelize");
 
 const router = express.Router();
 
 // Get all users (with pagination and search)
-router.get('/', authenticateToken, async (req, res) => {
+router.get("/", authenticateToken, async (req, res) => {
   try {
     const { page = 1, limit = 20, search, department, expertise } = req.query;
     const offset = (page - 1) * limit;
 
     const where = { isActive: true };
-    
+
     if (search) {
       where[Op.or] = [
         { firstName: { [Op.iLike]: `%${search}%` } },
         { lastName: { [Op.iLike]: `%${search}%` } },
-        { email: { [Op.iLike]: `%${search}%` } }
+        { email: { [Op.iLike]: `%${search}%` } },
       ];
     }
 
@@ -29,27 +38,27 @@ router.get('/', authenticateToken, async (req, res) => {
       {
         model: UserExpertise,
         include: [ExpertiseTag],
-        where: expertise ? {} : undefined
-      }
+        where: expertise ? {} : undefined,
+      },
     ];
 
     if (expertise) {
       include[0].where = {
-        '$UserExpertise.ExpertiseTag.name$': { [Op.iLike]: `%${expertise}%` }
+        "$UserExpertise.ExpertiseTag.name$": { [Op.iLike]: `%${expertise}%` },
       };
     }
 
     const { count, rows: users } = await User.findAndCountAll({
       where,
       include,
-      order: [['reputationScore', 'DESC']],
+      order: [["reputationScore", "DESC"]],
       limit: parseInt(limit),
       offset: parseInt(offset),
-      distinct: true
+      distinct: true,
     });
 
     res.json({
-      users: users.map(user => ({
+      users: users.map((user) => ({
         id: user.id,
         firstName: user.firstName,
         lastName: user.lastName,
@@ -60,49 +69,50 @@ router.get('/', authenticateToken, async (req, res) => {
         totalPoints: user.totalPoints,
         questionsAnswered: user.questionsAnswered,
         answersAccepted: user.answersAccepted,
-        expertise: user.UserExpertise?.map(ue => ({
-          name: ue.ExpertiseTag?.name,
-          level: ue.proficiencyLevel
-        })) || []
+        expertise:
+          user.UserExpertise?.map((ue) => ({
+            name: ue.ExpertiseTag?.name,
+            level: ue.proficiencyLevel,
+          })) || [],
       })),
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
         total: count,
-        totalPages: Math.ceil(count / limit)
-      }
+        totalPages: Math.ceil(count / limit),
+      },
     });
   } catch (error) {
-    console.error('Get users error:', error);
-    res.status(500).json({ error: 'Failed to get users' });
+    console.error("Get users error:", error);
+    res.status(500).json({ error: "Failed to get users" });
   }
 });
 
 // Get user by ID (profile)
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get("/:id", authenticateToken, async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id, {
       include: [
         {
           model: UserExpertise,
-          include: [ExpertiseTag]
+          include: [ExpertiseTag],
         },
         {
           model: UserBadge,
-          include: [Badge]
-        }
-      ]
+          include: [Badge],
+        },
+      ],
     });
 
     if (!user || !user.isActive) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: "User not found" });
     }
 
     // Get recent activity
     const recentActivity = await ActivityLog.findAll({
       where: { userId: user.id },
-      order: [['created_at', 'DESC']],
-      limit: 10
+      order: [["created_at", "DESC"]],
+      limit: 10,
     });
 
     // Get points history (last 30 days)
@@ -112,9 +122,9 @@ router.get('/:id', authenticateToken, async (req, res) => {
     const pointsHistory = await PointsHistory.findAll({
       where: {
         userId: user.id,
-        createdAt: { [Op.gte]: thirtyDaysAgo }
+        createdAt: { [Op.gte]: thirtyDaysAgo },
       },
-      order: [['createdAt', 'DESC']]
+      order: [["createdAt", "DESC"]],
     });
 
     res.json({
@@ -136,42 +146,44 @@ router.get('/:id', authenticateToken, async (req, res) => {
         totalUpvotesReceived: user.totalUpvotesReceived,
         lastActiveAt: user.lastActiveAt,
         createdAt: user.createdAt,
-        expertise: user.UserExpertise?.map(ue => ({
-          id: ue.ExpertiseTag?.id,
-          name: ue.ExpertiseTag?.name,
-          level: ue.proficiencyLevel,
-          verifiedCount: ue.verifiedCount
-        })) || [],
-        badges: user.UserBadges?.map(ub => ({
-          id: ub.Badge?.id,
-          name: ub.Badge?.name,
-          description: ub.Badge?.description,
-          iconUrl: ub.Badge?.iconUrl,
-          category: ub.Badge?.category,
-          earnedAt: ub.earnedAt
-        })) || []
+        expertise:
+          user.UserExpertise?.map((ue) => ({
+            id: ue.ExpertiseTag?.id,
+            name: ue.ExpertiseTag?.name,
+            level: ue.proficiencyLevel,
+            verifiedCount: ue.verifiedCount,
+          })) || [],
+        badges:
+          user.UserBadges?.map((ub) => ({
+            id: ub.Badge?.id,
+            name: ub.Badge?.name,
+            description: ub.Badge?.description,
+            iconUrl: ub.Badge?.iconUrl,
+            category: ub.Badge?.category,
+            earnedAt: ub.earnedAt,
+          })) || [],
       },
-      recentActivity: recentActivity.map(a => ({
+      recentActivity: recentActivity.map((a) => ({
         type: a.actionType,
         description: a.description,
         metadata: a.metadata,
-        createdAt: a.createdAt
+        createdAt: a.createdAt,
       })),
-      pointsHistory: pointsHistory.map(p => ({
+      pointsHistory: pointsHistory.map((p) => ({
         points: p.points,
         actionType: p.actionType,
         description: p.description,
-        createdAt: p.createdAt
-      }))
+        createdAt: p.createdAt,
+      })),
     });
   } catch (error) {
-    console.error('Get user profile error:', error);
-    res.status(500).json({ error: 'Failed to get user profile' });
+    console.error("Get user profile error:", error);
+    res.status(500).json({ error: "Failed to get user profile" });
   }
 });
 
 // Update user expertise
-router.put('/expertise', authenticateToken, async (req, res) => {
+router.put("/expertise", authenticateToken, async (req, res) => {
   try {
     const { expertise } = req.body; // Array of { tagId, level }
     const userId = req.user.userId;
@@ -182,49 +194,49 @@ router.put('/expertise', authenticateToken, async (req, res) => {
     // Add new expertise
     if (expertise && expertise.length > 0) {
       await UserExpertise.bulkCreate(
-        expertise.map(e => ({
+        expertise.map((e) => ({
           userId,
           tagId: e.tagId,
-          proficiencyLevel: e.level
-        }))
+          proficiencyLevel: e.level,
+        })),
       );
     }
 
     // Log activity
     await ActivityLog.create({
       userId,
-      actionType: 'expertise_updated',
-      description: 'Updated expertise tags',
-      metadata: { expertiseCount: expertise?.length || 0 }
+      actionType: "expertise_updated",
+      description: "Updated expertise tags",
+      metadata: { expertiseCount: expertise?.length || 0 },
     });
 
-    res.json({ message: 'Expertise updated successfully' });
+    res.json({ message: "Expertise updated successfully" });
   } catch (error) {
-    console.error('Update expertise error:', error);
-    res.status(500).json({ error: 'Failed to update expertise' });
+    console.error("Update expertise error:", error);
+    res.status(500).json({ error: "Failed to update expertise" });
   }
 });
 
 // Get user stats
-router.get('/:id/stats', authenticateToken, async (req, res) => {
+router.get("/:id/stats", authenticateToken, async (req, res) => {
   try {
     const userId = req.params.id;
-    
+
     const user = await User.findByPk(userId, {
       attributes: [
-        'questionsAsked',
-        'questionsAnswered',
-        'answersAccepted',
-        'totalUpvotesReceived',
-        'totalPoints',
-        'reputationScore',
-        'quizStreak',
-        'longestQuizStreak'
-      ]
+        "questionsAsked",
+        "questionsAnswered",
+        "answersAccepted",
+        "totalUpvotesReceived",
+        "totalPoints",
+        "reputationScore",
+        "quizStreak",
+        "longestQuizStreak",
+      ],
     });
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: "User not found" });
     }
 
     // Get activity heatmap data (last 365 days)
@@ -234,13 +246,13 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
     const activityData = await ActivityLog.findAll({
       where: {
         userId,
-        createdAt: { [Op.gte]: oneYearAgo }
+        createdAt: { [Op.gte]: oneYearAgo },
       },
       attributes: [
-        [sequelize.fn('DATE', sequelize.col('created_at')), 'date'],
-        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+        [sequelize.fn("DATE", sequelize.col("created_at")), "date"],
+        [sequelize.fn("COUNT", sequelize.col("id")), "count"],
       ],
-      group: [sequelize.fn('DATE', sequelize.col('created_at'))]
+      group: [sequelize.fn("DATE", sequelize.col("created_at"))],
     });
 
     res.json({
@@ -253,18 +265,19 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
         reputationScore: user.reputationScore,
         quizStreak: user.quizStreak,
         longestQuizStreak: user.longestQuizStreak,
-        acceptanceRate: user.questionsAnswered > 0 
-          ? Math.round((user.answersAccepted / user.questionsAnswered) * 100) 
-          : 0
+        acceptanceRate:
+          user.questionsAnswered > 0
+            ? Math.round((user.answersAccepted / user.questionsAnswered) * 100)
+            : 0,
       },
-      activityHeatmap: activityData.map(a => ({
-        date: a.getDataValue('date'),
-        count: parseInt(a.getDataValue('count'))
-      }))
+      activityHeatmap: activityData.map((a) => ({
+        date: a.getDataValue("date"),
+        count: parseInt(a.getDataValue("count")),
+      })),
     });
   } catch (error) {
-    console.error('Get user stats error:', error);
-    res.status(500).json({ error: 'Failed to get user stats' });
+    console.error("Get user stats error:", error);
+    res.status(500).json({ error: "Failed to get user stats" });
   }
 });
 
