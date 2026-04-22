@@ -2,7 +2,7 @@
 
 KnowFlow is a modern, full-stack web application designed for organizations to facilitate internal knowledge sharing. It connects employees with the right information and experts using AI, while encouraging participation through gamification and continuous learning.
 
-## 🎯 Features
+## 🎯 Featuress
 
 ### Core Features
 - **AI-Powered Q&A System**: Smart question routing and tag extraction
