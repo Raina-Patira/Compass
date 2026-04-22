@@ -583,6 +583,10 @@ const QuizQuestion = sequelize.define(
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
+    quizId: {
+      type: DataTypes.UUID,
+      field: "quiz_id", // ✅ THIS FIXES IT
+    },
     question: {
       type: DataTypes.TEXT,
       allowNull: false,
